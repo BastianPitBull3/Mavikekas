@@ -1,0 +1,115 @@
+/* Directivas de Tailwind CSS — deben estar al inicio */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   ESTILOS GLOBALES DE LA APLICACIÓN
+   ============================================================ */
+
+/* Aplica el modelo de caja border-box a todos los elementos */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background-color: #fafaf9;
+  color: #1c1917;
+  min-height: 100vh;
+}
+
+/* ============================================================
+   COMPONENTES REUTILIZABLES MEDIANTE @apply
+   ============================================================ */
+
+@layer components {
+  /* Botón primario (naranja — acción principal de usuario) */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-orange-500 hover:bg-orange-600
+           text-white text-sm font-semibold rounded-lg transition-colors duration-150
+           focus:outline-none focus:ring-2 focus:ring-orange-400 focus:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón admin (índigo — acción principal de administrador) */
+  .btn-admin {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700
+           text-white text-sm font-semibold rounded-lg transition-colors duration-150
+           focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-1
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  /* Botón secundario (gris suave) */
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-white hover:bg-gray-50
+           border border-gray-300 text-gray-700 text-sm font-medium rounded-lg
+           transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-gray-300;
+  }
+
+  /* Botón de peligro (rojo — eliminar / acción destructiva) */
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600
+           text-white text-sm font-semibold rounded-lg transition-colors duration-150
+           focus:outline-none focus:ring-2 focus:ring-red-400 focus:ring-offset-1;
+  }
+
+  /* Campo de formulario estándar */
+  .input-field {
+    @apply w-full px-3 py-2 text-sm bg-white border border-gray-300 rounded-lg
+           focus:outline-none focus:ring-2 focus:ring-orange-400 focus:border-transparent
+           placeholder:text-gray-400 transition-shadow duration-150;
+  }
+
+  /* Tarjeta con sombra suave */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-100 p-5;
+  }
+
+  /* Badge de estado */
+  .badge-active {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+           bg-green-100 text-green-700;
+  }
+
+  .badge-inactive {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+           bg-gray-100 text-gray-600;
+  }
+
+  .badge-admin {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+           bg-indigo-100 text-indigo-700;
+  }
+
+  .badge-user {
+    @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium
+           bg-orange-100 text-orange-700;
+  }
+}
+
+/* ============================================================
+   ANIMACIONES
+   ============================================================ */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in  { animation: fadeIn 0.2s ease-out; }
+.slide-up { animation: slideUp 0.25s ease-out; }
+
+/* Toggle switch personalizado */
+.toggle-switch {
+  @apply relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200
+         focus:outline-none cursor-pointer;
+}
+.toggle-switch-thumb {
+  @apply inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform duration-200;
+}
