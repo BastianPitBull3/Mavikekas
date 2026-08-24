@@ -68,6 +68,19 @@ Requiere tener el proyecto correcto seleccionado en `.firebaserc` y sesión inic
 
 Si usas Claude Code, el skill `deploy-mavikekas` (`.claude/skills/deploy-mavikekas/`) hace ambos pasos en uno.
 
+### Despliegue automático (CI/CD)
+
+Además del deploy manual, dos GitHub Actions (`.github/workflows/`) despliegan solos:
+
+| Rama | Destino | Cuándo |
+|---|---|---|
+| `main` | Sitio de producción (`mavikekas-690e0.web.app`) | En cada push a `main` |
+| `develop` | Canal de vista previa `develop` (URL propia, separada de producción) | En cada push a `develop` |
+
+Así puedes probar en el canal de `develop` antes de mandar los cambios a `main`.
+
+Requiere el secreto `FIREBASE_SERVICE_ACCOUNT` en **Settings → Secrets and variables → Actions** del repo (ver más abajo cómo generarlo).
+
 ## Licencia
 
 Todos los derechos reservados. El código es visible con fines de consulta/portafolio, pero no está autorizado su uso, copia, modificación o redistribución sin permiso explícito.

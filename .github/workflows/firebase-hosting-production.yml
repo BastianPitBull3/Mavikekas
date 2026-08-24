@@ -1,0 +1,28 @@
+name: Deploy to Firebase Hosting (producción)
+
+# Se dispara con cada push a main — el sitio en vivo (mavikekas-690e0.web.app)
+# siempre refleja lo que hay en esta rama.
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - run: npm ci
+      - run: npm run build
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: '${{ secrets.GITHUB_TOKEN }}'
+          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT }}'
+          projectId: mavikekas-690e0
+          channelId: live
