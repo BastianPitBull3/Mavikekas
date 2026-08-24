@@ -39,5 +39,11 @@ Thumbs.db
 .cache/
 .parcel-cache/
 
+# Cache local del CLI de Firebase (se regenera con cada deploy)
+.firebase/
+
+# Configuración local de Claude Code (permisos por máquina, no compartir)
+.claude/settings.local.json
+
 # TypeScript
 *.tsbuildinfo
