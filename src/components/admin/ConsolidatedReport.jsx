@@ -10,10 +10,20 @@ import { getCurrentDay, formatTimestamp } from '../../utils/dateUtils';
 import { generateDayReport, getOrderSummaryLines } from '../../utils/reportGenerator';
 
 export default function ConsolidatedReport() {
-  const { state, getTodayOrders } = useApp();
+  const { state, getTodayOrders, deleteOrder } = useApp();
   const { appState }              = state;
 
-  const [copied, setCopied] = useState(false);
+  const [copied,   setCopied]   = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState(null); // orderId a confirmar
+  const [deleting, setDeleting] = useState(null);           // orderId en proceso
+
+  const handleDelete = async (orderId) => {
+    setDeleting(orderId);
+    const result = await deleteOrder(orderId);
+    setDeleting(null);
+    setDeleteConfirm(null);
+    if (!result.success) alert(result.error);
+  };
 
   // Día efectivo (simulado o real)
   const day        = getCurrentDay(appState.simulatedDay);
@@ -120,29 +130,42 @@ export default function ConsolidatedReport() {
           {todayOrders.map((order, idx) => {
             const lines   = getOrderSummaryLines(order, order.dia);
             const itemTotal = order.items.reduce((acc, it) => acc + it.cantidad, 0);
+            const isConfirming = deleteConfirm === order.id;
+            const isDeleting   = deleting === order.id;
 
             return (
               <div key={order.id} className="card">
                 {/* Encabezado de la orden */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between mb-3 gap-3">
+                  <div className="flex items-center gap-3 min-w-0">
                     {/* Número de orden */}
                     <div className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 text-xs
                                     font-bold flex items-center justify-center flex-shrink-0">
                       {idx + 1}
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">
-                        {order.userNombre} {order.userApellido}
+                    <div className="min-w-0">
+                      <p className="font-medium text-gray-900 text-sm truncate">
+                        {order.userNombre}
                       </p>
                       <p className="text-xs text-gray-400">
                         🕐 {formatTimestamp(order.timestamp)}
                       </p>
                     </div>
                   </div>
-                  <span className="badge-active text-xs">
-                    {itemTotal} {isMartes ? 'tacos' : 'quesadillas'}
-                  </span>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <span className="badge-active text-xs">
+                      {itemTotal} {isMartes ? 'tacos' : 'quesadillas'}
+                    </span>
+                    {!isConfirming && (
+                      <button
+                        onClick={() => setDeleteConfirm(order.id)}
+                        className="text-red-400 hover:text-red-600 text-sm"
+                        title="Eliminar esta orden"
+                      >
+                        🗑
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Items de la orden */}
@@ -156,6 +179,30 @@ export default function ConsolidatedReport() {
                     </p>
                   ))}
                 </div>
+
+                {/* Confirmación de eliminación */}
+                {isConfirming && (
+                  <div className="flex items-center gap-2 mt-3 bg-red-50 border border-red-200
+                                  rounded-xl px-3 py-2">
+                    <span className="text-xs text-red-700 flex-1">
+                      ¿Eliminar la orden de {order.userNombre}?
+                    </span>
+                    <button
+                      onClick={() => handleDelete(order.id)}
+                      disabled={isDeleting}
+                      className="btn-danger text-xs px-2.5 py-1 disabled:opacity-60"
+                    >
+                      {isDeleting ? '…' : 'Sí, eliminar'}
+                    </button>
+                    <button
+                      onClick={() => setDeleteConfirm(null)}
+                      disabled={isDeleting}
+                      className="btn-secondary text-xs px-2.5 py-1"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })}

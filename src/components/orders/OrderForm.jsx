@@ -21,6 +21,9 @@ import {
 } from '../../utils/dateUtils';
 import { getOrderSummaryLines } from '../../utils/reportGenerator';
 import OrderSummary from './OrderSummary';
+import CompleteProfileModal from './CompleteProfileModal';
+import BirthdaysWidget from '../birthdays/BirthdaysWidget';
+import TodayBirthdayCard from '../birthdays/TodayBirthdayCard';
 
 // ============================================================
 // SUB-COMPONENTE: Mensaje de servicio inactivo
@@ -66,10 +69,19 @@ function ServiceInactiveMessage({ appState }) {
 // ============================================================
 // SUB-COMPONENTE: Resumen de orden existente
 // ============================================================
-function ExistingOrderDisplay({ order, day, onModify, serviceActive }) {
+function ExistingOrderDisplay({ order, day, onModify, onDelete, serviceActive }) {
   const lines = getOrderSummaryLines(order, day);
   const isMartes = day === 'martes';
   const total = order.items.reduce((acc, it) => acc + it.cantidad, 0);
+
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting,         setDeleting]         = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    await onDelete();
+    setDeleting(false);
+  };
 
   return (
     <div className="max-w-lg mx-auto fade-in">
@@ -101,11 +113,40 @@ function ExistingOrderDisplay({ order, day, onModify, serviceActive }) {
           </div>
         </div>
 
-        {/* Acción de modificar */}
+        {/* Acciones de modificar / eliminar */}
         {serviceActive ? (
-          <button onClick={onModify} className="btn-primary w-full">
-            ✏️ Modificar mi orden
-          </button>
+          confirmingDelete ? (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 flex-1">¿Eliminar tu pedido?</span>
+              <button
+                onClick={handleDelete}
+                disabled={deleting}
+                className="btn-danger text-sm px-3 py-1.5 disabled:opacity-60"
+              >
+                {deleting ? '…' : 'Sí, eliminar'}
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(false)}
+                disabled={deleting}
+                className="btn-secondary text-sm px-3 py-1.5"
+              >
+                Cancelar
+              </button>
+            </div>
+          ) : (
+            <div className="flex gap-2">
+              <button onClick={onModify} className="btn-primary flex-1">
+                ✏️ Modificar mi orden
+              </button>
+              <button
+                onClick={() => setConfirmingDelete(true)}
+                className="btn-danger px-3"
+                title="Eliminar mi orden"
+              >
+                🗑
+              </button>
+            </div>
+          )
         ) : (
           <p className="text-xs text-center text-gray-400">
             El servicio ha cerrado. Tu orden quedó registrada.
@@ -183,11 +224,13 @@ function ManualOrderForm({ catalog, day, initialItems, onSubmit, onBack }) {
     catalog
       .filter((c) => c.activo)
       .map((c) => {
-        const existing = initialItems?.find((it) => it.sabor === c.nombre);
+        const existing    = initialItems?.find((it) => it.sabor === c.nombre);
+        const admiteQueso = c.admiteQueso !== false;
         return {
-          sabor:    c.nombre,
-          cantidad: existing?.cantidad ?? 0,
-          conQueso: existing?.conQueso ?? 0,
+          sabor:       c.nombre,
+          cantidad:    existing?.cantidad ?? 0,
+          conQueso:    admiteQueso ? (existing?.conQueso ?? 0) : 0,
+          admiteQueso,
         };
       }),
     [catalog, initialItems]
@@ -224,10 +267,10 @@ function ManualOrderForm({ catalog, day, initialItems, onSubmit, onBack }) {
     );
   };
 
-  /** Botón global: poner todos los seleccionados con queso al máximo */
+  /** Botón global: poner todos los que admiten queso al máximo */
   const selectAllWithCheese = () => {
     setItems((prev) =>
-      prev.map((it) => ({ ...it, conQueso: it.cantidad }))
+      prev.map((it) => it.admiteQueso ? { ...it, conQueso: it.cantidad } : it)
     );
   };
 
@@ -319,8 +362,8 @@ function ManualOrderForm({ catalog, day, initialItems, onSubmit, onBack }) {
                 </div>
               </div>
 
-              {/* Sub-fila de "con queso" (solo martes y cuando hay cantidad > 0) */}
-              {isMartes && item.cantidad > 0 && (
+              {/* Sub-fila de "con queso" (solo martes, con cantidad y si el sabor admite queso) */}
+              {isMartes && item.cantidad > 0 && item.admiteQueso && (
                 <div className="mt-2 ml-1 flex items-center gap-2 text-xs text-amber-700">
                   <span>🧀 Con queso:</span>
                   <div className="flex items-center gap-1.5">
@@ -404,11 +447,16 @@ function ManualOrderForm({ catalog, day, initialItems, onSubmit, onBack }) {
 // COMPONENTE PRINCIPAL
 // ============================================================
 export default function OrderForm() {
-  const { state, getTodayOrder, submitOrder } = useApp();
+  const { state, getTodayOrder, submitOrder, deleteOrder } = useApp();
   const { currentUser, catalogs, appState, orderSummary } = state;
 
   // Vista interna: 'decide' | 'form'
   const [innerView, setInnerView] = useState('decide');
+
+  // Se activa tras enviar un pedido si al usuario le falta cumpleaños o
+  // pastel favorito; se muestra hasta que se cierre el resumen del pedido
+  // para no encimar dos modales a la vez.
+  const [pendingCompleteProfile, setPendingCompleteProfile] = useState(false);
 
   const serviceActive = isServiceActive(appState);
   const day           = getCurrentDay(appState.simulatedDay);
@@ -425,10 +473,13 @@ export default function OrderForm() {
   }, [serviceActive]);
 
   // Al enviar la orden (manual o por defecto)
-  const handleSubmit = (items, saveAsDefault = false) => {
-    const result = submitOrder(items, day, saveAsDefault);
+  const handleSubmit = async (items, saveAsDefault = false) => {
+    const result = await submitOrder(items, day, saveAsDefault);
     if (result.success) {
       setInnerView('decide');
+      if (!currentUser?.cumpleanos || !currentUser?.pastelFavorito) {
+        setPendingCompleteProfile(true);
+      }
     }
   };
 
@@ -438,37 +489,36 @@ export default function OrderForm() {
     handleSubmit(defaultOrder.items, false);
   };
 
-  // ---- Renderizado según el estado del servicio y la vista ----
+  // Eliminar el pedido del día
+  const handleDeleteOrder = async () => {
+    if (!existingOrder) return;
+    await deleteOrder(existingOrder.id);
+  };
 
-  // El servicio está inactivo
+  // ---- Contenido según el estado del servicio y la vista ----
+  let content;
+
   if (!serviceActive) {
-    return (
-      <div className="p-4">
-        <ServiceInactiveMessage appState={appState} />
-      </div>
-    );
-  }
-
-  // El usuario ya tiene una orden hoy y no está en modo formulario
-  if (existingOrder && innerView === 'decide') {
-    return (
-      <div className="p-4">
+    // El servicio está inactivo
+    content = <ServiceInactiveMessage appState={appState} />;
+  } else if (existingOrder && innerView === 'decide') {
+    // El usuario ya tiene una orden hoy y no está en modo formulario
+    content = (
+      <>
         <ExistingOrderDisplay
           order={existingOrder}
           day={day}
           serviceActive={serviceActive}
           onModify={() => setInnerView('form')}
+          onDelete={handleDeleteOrder}
         />
-        {/* Modal de resumen si acaba de enviar */}
         {orderSummary && <OrderSummary onModify={() => setInnerView('form')} />}
-      </div>
+      </>
     );
-  }
-
-  // Modo formulario (nuevo o modificación)
-  if (innerView === 'form') {
-    return (
-      <div className="p-4">
+  } else if (innerView === 'form') {
+    // Modo formulario (nuevo o modificación)
+    content = (
+      <>
         <ManualOrderForm
           catalog={catalog}
           day={day}
@@ -477,14 +527,12 @@ export default function OrderForm() {
           onBack={() => setInnerView('decide')}
         />
         {orderSummary && <OrderSummary onModify={() => setInnerView('form')} />}
-      </div>
+      </>
     );
-  }
-
-  // Sin orden existente: mostrar opciones o ir directo al formulario
-  if (hasDefault) {
-    return (
-      <div className="p-4">
+  } else if (hasDefault) {
+    // Sin orden existente: mostrar opciones
+    content = (
+      <>
         <OrderOptions
           defaultOrder={defaultOrder}
           day={day}
@@ -492,21 +540,36 @@ export default function OrderForm() {
           onManual={() => setInnerView('form')}
         />
         {orderSummary && <OrderSummary onModify={() => setInnerView('form')} />}
-      </div>
+      </>
+    );
+  } else {
+    // Sin orden y sin defecto → directo al formulario
+    content = (
+      <>
+        <ManualOrderForm
+          catalog={catalog}
+          day={day}
+          initialItems={null}
+          onSubmit={handleSubmit}
+          onBack={null}
+        />
+        {orderSummary && <OrderSummary onModify={() => setInnerView('form')} />}
+      </>
     );
   }
 
-  // Sin orden y sin defecto → directo al formulario
   return (
     <div className="p-4">
-      <ManualOrderForm
-        catalog={catalog}
-        day={day}
-        initialItems={null}
-        onSubmit={handleSubmit}
-        onBack={null}
-      />
-      {orderSummary && <OrderSummary onModify={() => setInnerView('form')} />}
+      <div className="max-w-lg mx-auto">
+        <TodayBirthdayCard />
+      </div>
+      {content}
+      <div className="max-w-lg mx-auto mt-6">
+        <BirthdaysWidget />
+      </div>
+      {!orderSummary && pendingCompleteProfile && (
+        <CompleteProfileModal onClose={() => setPendingCompleteProfile(false)} />
+      )}
     </div>
   );
 }
