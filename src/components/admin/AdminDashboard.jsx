@@ -10,6 +10,8 @@ import { isServiceActive, getCurrentDay, isServiceActiveBySchedule } from '../..
 import UserManagement    from './UserManagement';
 import CatalogManagement from './CatalogManagement';
 import ConsolidatedReport from './ConsolidatedReport';
+import BirthdaysWidget   from '../birthdays/BirthdaysWidget';
+import TodayBirthdayCard from '../birthdays/TodayBirthdayCard';
 
 // ============================================================
 // SUB-COMPONENTE: Pestaña de inicio (overview + control de servicio)
@@ -28,6 +30,8 @@ function OverviewTab() {
 
   return (
     <div className="space-y-5">
+      <TodayBirthdayCard />
+
       {/* ── Control del Servicio ── */}
       <div className="card border-2 border-dashed border-gray-200">
         <h3 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -127,6 +131,9 @@ function OverviewTab() {
           </div>
         </div>
       )}
+
+      {/* ── Cumpleaños ── */}
+      <BirthdaysWidget />
     </div>
   );
 }

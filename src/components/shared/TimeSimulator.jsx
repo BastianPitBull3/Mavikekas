@@ -6,10 +6,14 @@
  */
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { getCurrentDay, getCurrentTime } from '../../utils/dateUtils';
+import { getCurrentDay, getCurrentTime, getTodayString } from '../../utils/dateUtils';
+import { clearBirthdayModalShown } from '../../utils/storage';
 
 export default function TimeSimulator() {
-  const { state, setSimulatedDay, setSimulatedTime } = useApp();
+  const {
+    state, setSimulatedDay, setSimulatedTime, setSimulatedDate, resetSimulation,
+    retriggerBirthdayModal,
+  } = useApp();
   const { currentUser, appState } = state;
 
   // Solo visible para administradores
@@ -17,19 +21,13 @@ export default function TimeSimulator() {
 
   const [collapsed, setCollapsed] = useState(true);
 
-  const { simulatedDay, simulatedTime } = appState;
+  const { simulatedDay, simulatedTime, simulatedDate } = appState;
 
   // Valores actuales efectivos (simulado o real)
   const effectiveDay  = getCurrentDay(simulatedDay);
   const effectiveTime = getCurrentTime(simulatedTime);
 
-  /** Restablece la simulación a valores reales */
-  const resetSimulation = () => {
-    setSimulatedDay(null);
-    setSimulatedTime(null);
-  };
-
-  const isSimulating = simulatedDay !== null || simulatedTime !== null;
+  const isSimulating = simulatedDay !== null || simulatedTime !== null || simulatedDate !== null;
 
   return (
     <div className="fixed bottom-4 right-4 z-50 slide-up">
@@ -64,6 +62,39 @@ export default function TimeSimulator() {
                 <span className="text-yellow-300 font-medium">{effectiveTime}</span>
                 {simulatedTime && <span className="text-blue-400 ml-1">(simulada)</span>}
               </p>
+              <p>
+                <span className="text-gray-400">Fecha:</span>{' '}
+                <span className="text-yellow-300 font-medium">{simulatedDate || getTodayString()}</span>
+                {simulatedDate && <span className="text-blue-400 ml-1">(simulada)</span>}
+              </p>
+            </div>
+
+            {/* Selector de fecha (para probar cumpleaños) */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-2 font-medium">
+                Simular fecha (cumpleaños):
+              </label>
+              <input
+                type="date"
+                value={simulatedDate || ''}
+                onChange={(e) => setSimulatedDate(e.target.value || null)}
+                className="w-full bg-gray-700 border border-gray-600 text-white text-sm rounded-lg px-3 py-2
+                           focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Solo afecta la felicitación de cumpleaños; el horario del servicio usa el día/hora simulados arriba.
+              </p>
+              <button
+                onClick={() => {
+                  clearBirthdayModalShown(currentUser.id);
+                  retriggerBirthdayModal();
+                }}
+                className="w-full mt-2 py-1.5 bg-pink-600 hover:bg-pink-700 text-white text-xs
+                           font-semibold rounded-lg transition-colors"
+                title="Olvida que ya viste el modal hoy, para poder volver a probarlo"
+              >
+                🎂 Reprobar modal de cumpleaños
+              </button>
             </div>
 
             {/* Selector de día */}

@@ -8,26 +8,27 @@ import { useApp } from '../../context/AppContext';
 
 // ============================================================
 // SUB-COMPONENTE: Selector de ítems para orden por defecto
+// (sin card propia — vive dentro de la card con pestañas del padre)
 // ============================================================
 function DefaultOrderEditor({ catalog, day, initialItems, onSave }) {
   const isMartes = day === 'martes';
-  const label    = isMartes ? '🌮 Tacos (Martes)' : '🧀 Quesadillas (Viernes)';
 
-  // Inicializar el estado con el catálogo activo
   const buildItems = () =>
     catalog
       .filter((c) => c.activo)
       .map((c) => {
-        const existing = initialItems?.find((it) => it.sabor === c.nombre);
+        const existing    = initialItems?.find((it) => it.sabor === c.nombre);
+        const admiteQueso = c.admiteQueso !== false;
         return {
-          sabor:    c.nombre,
-          cantidad: existing?.cantidad ?? 0,
-          conQueso: existing?.conQueso ?? 0,
+          sabor:       c.nombre,
+          cantidad:    existing?.cantidad ?? 0,
+          conQueso:    admiteQueso ? (existing?.conQueso ?? 0) : 0,
+          admiteQueso,
         };
       });
 
-  const [items,   setItems]   = useState(buildItems);
-  const [saved,   setSaved]   = useState(false);
+  const [items, setItems] = useState(buildItems);
+  const [saved, setSaved] = useState(false);
 
   useEffect(() => { setItems(buildItems()); }, [catalog, initialItems]);
 
@@ -58,15 +59,13 @@ function DefaultOrderEditor({ catalog, day, initialItems, onSave }) {
     setSaved(true);
   };
 
-  const total = items.reduce((acc, it) => acc + it.cantidad, 0);
+  const total  = items.reduce((acc, it) => acc + it.cantidad, 0);
   const active = items.filter((it) => catalog.find((c) => c.nombre === it.sabor && c.activo));
 
   return (
-    <div className="card">
-      <h3 className="font-semibold text-gray-800 mb-3">{label}</h3>
-
+    <div>
       {active.length === 0 ? (
-        <p className="text-sm text-gray-400 text-center py-3">
+        <p className="text-sm text-gray-400 text-center py-6">
           No hay sabores activos en el catálogo
         </p>
       ) : (
@@ -106,8 +105,8 @@ function DefaultOrderEditor({ catalog, day, initialItems, onSave }) {
                 </div>
               </div>
 
-              {/* Con queso (solo martes) */}
-              {isMartes && item.cantidad > 0 && (
+              {/* Con queso (solo martes y si el sabor admite queso) */}
+              {isMartes && item.cantidad > 0 && item.admiteQueso && (
                 <div className="mt-2 ml-1 flex items-center gap-2 text-xs text-amber-700">
                   <span>🧀 Con queso:</span>
                   <div className="flex items-center gap-1.5">
@@ -147,12 +146,11 @@ function DefaultOrderEditor({ catalog, day, initialItems, onSave }) {
         </div>
       )}
 
-      {/* Contador y botón guardar */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-col gap-2 pt-1">
         <span className="text-sm text-gray-500">
           Total: <strong>{total}</strong> {isMartes ? 'tacos' : 'quesadillas'}
         </span>
-        <button onClick={handleSave} className="btn-primary">
+        <button onClick={handleSave} className="btn-primary w-full">
           {saved ? '✅ Guardada' : '💾 Guardar predeterminada'}
         </button>
       </div>
@@ -164,37 +162,46 @@ function DefaultOrderEditor({ catalog, day, initialItems, onSave }) {
 // COMPONENTE PRINCIPAL
 // ============================================================
 export default function UserProfile() {
-  const { state, updateProfile, saveDefaultOrder } = useApp();
+  const { state, updateProfile, updateFavoriteCake, saveDefaultOrder } = useApp();
   const { currentUser, catalogs } = state;
 
-  if (!currentUser) return null;
-
-  // Estado del formulario de perfil
-  const [username,        setUsername]        = useState(currentUser.username);
+  const [defaultTab,      setDefaultTab]      = useState('martes');
+  const [username,        setUsername]        = useState(currentUser?.username ?? '');
   const [password,        setPassword]        = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPwd,         setShowPwd]         = useState(false);
-  const [profileMsg,      setProfileMsg]      = useState(null); // { type: 'success'|'error', text }
+  const [profileMsg,      setProfileMsg]      = useState(null);
+  const [pastelFavorito,  setPastelFavorito]  = useState(currentUser?.pastelFavorito ?? '');
+  const [cakeMsg,         setCakeMsg]         = useState(null);
 
-  const handleProfileSave = () => {
+  // Sincronizar username si currentUser cambia (p.ej. tras actualizar perfil)
+  useEffect(() => {
+    if (currentUser) setUsername(currentUser.username);
+  }, [currentUser?.username]);
+
+  useEffect(() => {
+    if (currentUser) setPastelFavorito(currentUser.pastelFavorito ?? '');
+  }, [currentUser?.pastelFavorito]);
+
+  if (!currentUser) return null;
+
+  const handleProfileSave = async () => {
     setProfileMsg(null);
 
     if (!username.trim()) {
       setProfileMsg({ type: 'error', text: 'El nombre de usuario no puede estar vacío' });
       return;
     }
-
     if (password && password !== confirmPassword) {
       setProfileMsg({ type: 'error', text: 'Las contraseñas no coinciden' });
       return;
     }
-
     if (password && password.length < 6) {
       setProfileMsg({ type: 'error', text: 'La contraseña debe tener al menos 6 caracteres' });
       return;
     }
 
-    const result = updateProfile(currentUser.id, {
+    const result = await updateProfile(currentUser.id, {
       username: username.trim(),
       password: password || undefined,
     });
@@ -212,124 +219,192 @@ export default function UserProfile() {
     saveDefaultOrder(day, items);
   };
 
+  const handleSaveCake = async () => {
+    setCakeMsg(null);
+    const trimmed = pastelFavorito.trim();
+    const result = await updateFavoriteCake(currentUser.id, trimmed);
+    setCakeMsg(
+      result.success
+        ? { type: 'success', text: trimmed ? 'Pastel favorito guardado correctamente' : 'Pastel favorito eliminado' }
+        : { type: 'error', text: result.error }
+    );
+  };
+
+  const TAB_STYLES = (active) =>
+    `px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+      active
+        ? 'border-orange-500 text-orange-600'
+        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+    }`;
+
   return (
-    <div className="max-w-lg mx-auto p-4 space-y-6 fade-in">
-      <h1 className="text-xl font-bold text-gray-900">Mi Perfil</h1>
+    <div className="max-w-6xl mx-auto p-4 fade-in">
+      <h1 className="text-xl font-bold text-gray-900 mb-5">Mi Perfil</h1>
 
-      {/* ── Sección: Datos de la cuenta ── */}
-      <div className="card space-y-4">
-        <div>
-          <h2 className="font-semibold text-gray-800 mb-0.5">Datos de la cuenta</h2>
-          <p className="text-xs text-gray-400">
-            Puedes cambiar tu usuario y contraseña, pero no tu nombre real.
-          </p>
-        </div>
+      {/* ── Layout de dos columnas ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
 
-        {/* Nombre real (solo lectura) */}
-        <div className="bg-gray-50 rounded-xl p-3 text-sm">
-          <p className="text-xs text-gray-400 mb-1">Nombre completo</p>
-          <p className="font-medium text-gray-800">
-            {currentUser.nombre} {currentUser.apellido}
-          </p>
-        </div>
-
-        {/* Username editable */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Nombre de usuario
-          </label>
-          <input
-            type="text"
-            className="input-field"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-          />
-        </div>
-
-        {/* Contraseña nueva */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-            Nueva contraseña{' '}
-            <span className="font-normal text-gray-400">(dejar vacío para no cambiar)</span>
-          </label>
-          <div className="relative">
-            <input
-              type={showPwd ? 'text' : 'password'}
-              className="input-field pr-10"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              onClick={() => setShowPwd(!showPwd)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-              tabIndex={-1}
-            >
-              {showPwd ? '🙈' : '👁️'}
-            </button>
+        {/* ── COLUMNA IZQUIERDA: Datos de la cuenta ── */}
+        <div className="card space-y-4">
+          <div>
+            <h2 className="font-semibold text-gray-800 mb-0.5">Datos de la cuenta</h2>
+            <p className="text-xs text-gray-400">
+              Puedes cambiar tu usuario y contraseña, pero no tu nombre real.
+            </p>
           </div>
-        </div>
 
-        {/* Confirmar contraseña */}
-        {password && (
+          {/* Nombre real (solo lectura) */}
+          <div className="bg-gray-50 rounded-xl p-3 text-sm">
+            <p className="text-xs text-gray-400 mb-1">Nombre completo</p>
+            <p className="font-medium text-gray-800">
+              {currentUser.nombre} {currentUser.apellido}
+            </p>
+          </div>
+
+          {/* Username editable */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Confirmar contraseña
+              Nombre de usuario
             </label>
             <input
-              type={showPwd ? 'text' : 'password'}
+              type="text"
               className="input-field"
-              placeholder="••••••••"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
             />
           </div>
-        )}
 
-        {/* Mensaje de resultado */}
-        {profileMsg && (
-          <div
-            className={`px-4 py-3 rounded-lg text-sm border ${
-              profileMsg.type === 'success'
-                ? 'bg-green-50 border-green-200 text-green-700'
-                : 'bg-red-50 border-red-200 text-red-600'
-            }`}
-          >
-            {profileMsg.type === 'success' ? '✅ ' : '⚠️ '}
-            {profileMsg.text}
+          {/* Contraseña nueva */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Nueva contraseña{' '}
+              <span className="font-normal text-gray-400">(dejar vacío para no cambiar)</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showPwd ? 'text' : 'password'}
+                className="input-field pr-10"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPwd(!showPwd)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                tabIndex={-1}
+              >
+                {showPwd ? '🙈' : '👁️'}
+              </button>
+            </div>
           </div>
-        )}
 
-        <button onClick={handleProfileSave} className="btn-primary">
-          💾 Guardar cambios
-        </button>
-      </div>
+          {/* Confirmar contraseña */}
+          {password && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Confirmar contraseña
+              </label>
+              <input
+                type={showPwd ? 'text' : 'password'}
+                className="input-field"
+                placeholder="••••••••"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
+          )}
 
-      {/* ── Sección: Órdenes por defecto ── */}
-      <div>
-        <h2 className="font-semibold text-gray-800 mb-1">Órdenes por defecto</h2>
-        <p className="text-xs text-gray-400 mb-4">
-          Configura lo que pides normalmente para agilizar tu pedido del día.
-        </p>
+          {/* Mensaje de resultado */}
+          {profileMsg && (
+            <div
+              className={`px-4 py-3 rounded-lg text-sm border ${
+                profileMsg.type === 'success'
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-red-50 border-red-200 text-red-600'
+              }`}
+            >
+              {profileMsg.type === 'success' ? '✅ ' : '⚠️ '}
+              {profileMsg.text}
+            </div>
+          )}
 
-        <div className="space-y-4">
-          {/* Defecto para Martes (Tacos) */}
-          <DefaultOrderEditor
-            catalog={catalogs.tacos}
-            day="martes"
-            initialItems={currentUser.defaultOrders?.martes?.items}
-            onSave={handleSaveDefault}
-          />
+          <button onClick={handleProfileSave} className="btn-primary">
+            💾 Guardar cambios
+          </button>
 
-          {/* Defecto para Viernes (Quesadillas) */}
-          <DefaultOrderEditor
-            catalog={catalogs.quesadillas}
-            day="viernes"
-            initialItems={currentUser.defaultOrders?.viernes?.items}
-            onSave={handleSaveDefault}
-          />
+          {/* Pastel favorito */}
+          <div className="pt-3 border-t border-gray-100">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              🍰 Pastel favorito
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                type="text"
+                className="input-field flex-1 min-w-[10rem]"
+                placeholder="Ej. Chocolate"
+                value={pastelFavorito}
+                onChange={(e) => setPastelFavorito(e.target.value)}
+              />
+              <button onClick={handleSaveCake} className="btn-secondary text-sm">
+                Guardar
+              </button>
+            </div>
+            {cakeMsg && (
+              <p className={`text-xs mt-2 ${
+                cakeMsg.type === 'success' ? 'text-green-600' : 'text-red-600'
+              }`}>
+                {cakeMsg.type === 'success' ? '✅ ' : '⚠️ '}{cakeMsg.text}
+              </p>
+            )}
+          </div>
         </div>
+
+        {/* ── COLUMNA DERECHA: Órdenes por defecto con pestañas ── */}
+        <div className="card">
+          <div className="mb-4">
+            <h2 className="font-semibold text-gray-800 mb-0.5">Órdenes por defecto</h2>
+            <p className="text-xs text-gray-400">
+              Configura lo que pides normalmente para agilizar tu pedido del día.
+            </p>
+          </div>
+
+          {/* Pestañas */}
+          <div className="flex border-b border-gray-200 mb-4 -mx-1">
+            <button
+              onClick={() => setDefaultTab('martes')}
+              className={TAB_STYLES(defaultTab === 'martes')}
+            >
+              🌮 Martes
+            </button>
+            <button
+              onClick={() => setDefaultTab('viernes')}
+              className={TAB_STYLES(defaultTab === 'viernes')}
+            >
+              🧀 Viernes
+            </button>
+          </div>
+
+          {/* Editor activo según pestaña */}
+          {defaultTab === 'martes' ? (
+            <DefaultOrderEditor
+              key="martes"
+              catalog={catalogs.tacos}
+              day="martes"
+              initialItems={currentUser.defaultOrders?.martes?.items}
+              onSave={handleSaveDefault}
+            />
+          ) : (
+            <DefaultOrderEditor
+              key="viernes"
+              catalog={catalogs.quesadillas}
+              day="viernes"
+              initialItems={currentUser.defaultOrders?.viernes?.items}
+              onSave={handleSaveDefault}
+            />
+          )}
+        </div>
+
       </div>
     </div>
   );

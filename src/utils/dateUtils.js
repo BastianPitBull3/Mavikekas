@@ -85,6 +85,22 @@ export const isServiceActive = (appState) => {
 export const getTodayString = () => new Date().toISOString().split('T')[0];
 
 /**
+ * Retorna la fecha activa 'YYYY-MM-DD', considerando la simulación.
+ * Si simulatedDate está definida, la usa; si no, usa la fecha real del sistema.
+ * Solo afecta la lógica de cumpleaños (para poder probarla sin esperar la fecha real).
+ *
+ * @param {string|null} simulatedDate  - 'YYYY-MM-DD' | null
+ * @returns {Date}
+ */
+export const getCurrentDate = (simulatedDate) => {
+  if (simulatedDate) {
+    const [y, m, d] = simulatedDate.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+  return new Date();
+};
+
+/**
  * Formatea un string ISO de timestamp a hora legible 'HH:MM AM/PM'.
  *
  * @param {string} isoString
@@ -118,4 +134,75 @@ export const getMenuTypeForDay = (day) => {
   if (day === 'martes')  return 'tacos';
   if (day === 'viernes') return 'quesadillas';
   return null;
+};
+
+// ============================================================
+// CUMPLEAÑOS
+// ============================================================
+const MONTH_NAMES = [
+  'enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio',
+  'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre',
+];
+
+/**
+ * Formatea una fecha de cumpleaños 'YYYY-MM-DD' a texto legible, ej. "15 de marzo".
+ *
+ * @param {string|null} dateStr
+ * @returns {string|null}
+ */
+export const formatBirthday = (dateStr) => {
+  if (!dateStr) return null;
+  const [, month, day] = dateStr.split('-').map(Number);
+  return `${day} de ${MONTH_NAMES[month - 1]}`;
+};
+
+/**
+ * Calcula cuántos días faltan para el próximo cumpleaños (0 si es hoy).
+ * Ignora el año almacenado; siempre proyecta hacia la próxima ocurrencia.
+ *
+ * @param {string} dateStr - 'YYYY-MM-DD'
+ * @param {string|null} simulatedDate - 'YYYY-MM-DD' | null, para pruebas
+ * @returns {number}
+ */
+const daysUntilNextBirthday = (dateStr, simulatedDate = null) => {
+  const [, month, day] = dateStr.split('-').map(Number);
+  const now   = getCurrentDate(simulatedDate);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  let next    = new Date(now.getFullYear(), month - 1, day);
+  if (next < today) next = new Date(now.getFullYear() + 1, month - 1, day);
+  return Math.round((next - today) / 86400000);
+};
+
+/**
+ * Ordena usuarios por proximidad de su próximo cumpleaños.
+ * Los usuarios sin fecha configurada quedan al final, en su orden original.
+ *
+ * @param {Array<object>} users
+ * @param {string|null} simulatedDate - 'YYYY-MM-DD' | null, para pruebas
+ * @returns {Array<object>}
+ */
+export const sortByUpcomingBirthday = (users, simulatedDate = null) => {
+  const withDate    = users.filter((u) => u.cumpleanos);
+  const withoutDate = users.filter((u) => !u.cumpleanos);
+  withDate.sort(
+    (a, b) =>
+      daysUntilNextBirthday(a.cumpleanos, simulatedDate) -
+      daysUntilNextBirthday(b.cumpleanos, simulatedDate)
+  );
+  return [...withDate, ...withoutDate];
+};
+
+/**
+ * Verifica si hoy es el cumpleaños de un usuario. Considera la fecha simulada
+ * (si está definida) para poder probar la funcionalidad sin esperar la fecha real.
+ *
+ * @param {string|null} dateStr - 'YYYY-MM-DD'
+ * @param {string|null} simulatedDate - 'YYYY-MM-DD' | null, para pruebas
+ * @returns {boolean}
+ */
+export const isBirthdayToday = (dateStr, simulatedDate = null) => {
+  if (!dateStr) return false;
+  const [, month, day] = dateStr.split('-').map(Number);
+  const now = getCurrentDate(simulatedDate);
+  return now.getMonth() + 1 === month && now.getDate() === day;
 };

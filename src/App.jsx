@@ -11,6 +11,7 @@ import TimeSimulator      from './components/shared/TimeSimulator';
 import AdminDashboard     from './components/admin/AdminDashboard';
 import OrderForm          from './components/orders/OrderForm';
 import UserProfile        from './components/profile/UserProfile';
+import BirthdayModal      from './components/birthdays/BirthdayModal';
 
 // ── Pantalla de carga mientras Firestore inicializa ──
 function LoadingScreen() {
@@ -115,6 +116,7 @@ export default function App() {
         {currentView === 'profile' && <UserProfile />}
       </main>
       <TimeSimulator />
+      <BirthdayModal />
     </div>
   );
 }
