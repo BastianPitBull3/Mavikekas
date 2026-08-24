@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "description": "Sistema de órdenes de tacos y quesadillas — Mavikekas",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite",
