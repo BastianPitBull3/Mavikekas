@@ -27,27 +27,31 @@ const C = {
 
 // ============================================================
 // DATOS SEMILLA (se escriben solo si las colecciones están vacías)
+//
+// ⚠️  Estas contraseñas son placeholders de ejemplo, pensadas para un
+// Firestore recién creado. Cámbialas (Mi Perfil o Panel Admin) apenas
+// inicies sesión por primera vez — no las dejes tal cual en producción.
 // ============================================================
 const SEED = {
   users: [
     {
       id:              'u_admin_seed',
-      nombre:          'Carlos',
-      apellido:        'Administrador',
+      nombre:          'Admin',
+      apellido:        'Inicial',
       username:        'admin',
-      password:        'Admin2024!',
+      password:        'CambiarAhora#1',
       role:            'admin',
-      passwordChanged: true,
+      passwordChanged: false,
       cumpleanos:      null,
       pastelFavorito:  null,
       defaultOrders:   { martes: { items: [] }, viernes: { items: [] } },
     },
     {
       id:              'u_user1_seed',
-      nombre:          'María',
-      apellido:        'González',
-      username:        'mgonzalez',
-      password:        'Temp1234!',
+      nombre:          'Usuario',
+      apellido:        'De Prueba',
+      username:        'usuario1',
+      password:        'CambiarAhora#2',
       role:            'user',
       passwordChanged: false,
       cumpleanos:      null,
