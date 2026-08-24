@@ -1,14 +1,180 @@
 /**
  * LoginForm.jsx
- * Pantalla de inicio de sesión. Valida credenciales contra localStorage.
+ * Pantalla de inicio de sesión. Valida credenciales contra Firestore.
+ * También permite auto-registro con un código de invitación generado
+ * por un admin (ver RegisterForm más abajo).
  */
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import BirthdayPicker, { buildBirthdayDate } from '../shared/BirthdayPicker';
 
+// ============================================================
+// SUB-COMPONENTE: Formulario de auto-registro con código de invitación
+// ============================================================
+function RegisterForm({ onBack }) {
+  const { registerUser } = useApp();
+
+  const [form, setForm] = useState({
+    nombre: '', apellido: '', username: '', password: '', confirmPassword: '',
+    inviteCode: '', bdayDay: '', bdayMonth: '',
+  });
+  const [error,   setError]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPwd, setShowPwd] = useState(false);
+
+  const set = (field) => (e) => setForm({ ...form, [field]: e.target.value });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    setError('');
+
+    if (!form.nombre.trim() || !form.apellido.trim() || !form.username.trim() ||
+        !form.password || !form.inviteCode.trim()) {
+      setError('Completa todos los campos obligatorios');
+      return;
+    }
+    if (form.password !== form.confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    setLoading(true);
+    setTimeout(async () => {
+      const result = await registerUser({
+        nombre:     form.nombre,
+        apellido:   form.apellido,
+        username:   form.username,
+        password:   form.password,
+        inviteCode: form.inviteCode,
+        cumpleanos: buildBirthdayDate(form.bdayDay, form.bdayMonth),
+      });
+      if (!result.success) {
+        setError(result.error);
+        setLoading(false);
+      }
+      // Si tuvo éxito, registerUser ya inició la sesión — App.jsx redirige solo.
+    }, 300);
+  };
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 space-y-4"
+    >
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-gray-400 hover:text-gray-600 text-sm"
+        >
+          ← Volver
+        </button>
+        <h2 className="text-lg font-semibold text-gray-800">Crear cuenta</h2>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Nombre *</label>
+          <input
+            type="text" className="input-field text-sm" placeholder="Ej. Juan"
+            value={form.nombre} onChange={set('nombre')} disabled={loading}
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">Apellido *</label>
+          <input
+            type="text" className="input-field text-sm" placeholder="Ej. García"
+            value={form.apellido} onChange={set('apellido')} disabled={loading}
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Usuario *</label>
+        <input
+          type="text" autoComplete="username" className="input-field text-sm"
+          placeholder="Ej. jgarcia" value={form.username} onChange={set('username')}
+          disabled={loading}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Contraseña *</label>
+        <div className="relative">
+          <input
+            type={showPwd ? 'text' : 'password'} autoComplete="new-password"
+            className="input-field text-sm pr-10" placeholder="Mínimo 6 caracteres"
+            value={form.password} onChange={set('password')} disabled={loading}
+          />
+          <button
+            type="button" onClick={() => setShowPwd(!showPwd)}
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+            tabIndex={-1}
+          >
+            {showPwd ? '🙈' : '👁️'}
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña *</label>
+        <input
+          type={showPwd ? 'text' : 'password'} className="input-field text-sm"
+          placeholder="••••••••" value={form.confirmPassword}
+          onChange={set('confirmPassword')} disabled={loading}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          🎂 Cumpleaños (opcional)
+        </label>
+        <BirthdayPicker
+          day={form.bdayDay} month={form.bdayMonth}
+          onChange={({ day, month }) => setForm({ ...form, bdayDay: day, bdayMonth: month })}
+        />
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Código de invitación *
+        </label>
+        <input
+          type="text" className="input-field text-sm font-mono tracking-wider uppercase"
+          placeholder="Pídeselo a un admin" value={form.inviteCode}
+          onChange={set('inviteCode')} disabled={loading}
+        />
+      </div>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
+          <span>⚠️</span>
+          {error}
+        </div>
+      )}
+
+      <button type="submit" className="btn-primary w-full py-2.5 text-base" disabled={loading}>
+        {loading ? (
+          <>
+            <span className="animate-spin">⏳</span> Creando cuenta…
+          </>
+        ) : (
+          'Crear cuenta'
+        )}
+      </button>
+    </form>
+  );
+}
+
+// ============================================================
+// COMPONENTE PRINCIPAL
+// ============================================================
 export default function LoginForm() {
   const { login } = useApp();
 
-  // Estado del formulario
+  const [mode, setMode] = useState('login'); // 'login' | 'register'
+
+  // Estado del formulario de login
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error,    setError]    = useState('');
@@ -37,7 +203,6 @@ export default function LoginForm() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-orange-100 flex items-center justify-center p-4">
-      {/* Tarjeta de login */}
       <div className="w-full max-w-sm fade-in">
         {/* Logo / Marca */}
         <div className="text-center mb-8">
@@ -48,98 +213,97 @@ export default function LoginForm() {
           <p className="text-sm text-gray-500 mt-1">Sistema de órdenes</p>
         </div>
 
-        {/* Formulario */}
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 space-y-5"
-        >
-          <h2 className="text-lg font-semibold text-gray-800 text-center">
-            Iniciar sesión
-          </h2>
+        {mode === 'register' ? (
+          <RegisterForm onBack={() => setMode('login')} />
+        ) : (
+          <>
+            <form
+              onSubmit={handleSubmit}
+              className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 space-y-5"
+            >
+              <h2 className="text-lg font-semibold text-gray-800 text-center">
+                Iniciar sesión
+              </h2>
 
-          {/* Usuario */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Usuario
-            </label>
-            <input
-              type="text"
-              autoComplete="username"
-              className="input-field"
-              placeholder="Tu nombre de usuario"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              disabled={loading}
-            />
-          </div>
+              {/* Usuario */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Usuario
+                </label>
+                <input
+                  type="text"
+                  autoComplete="username"
+                  className="input-field"
+                  placeholder="Tu nombre de usuario"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  disabled={loading}
+                />
+              </div>
 
-          {/* Contraseña */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Contraseña
-            </label>
-            <div className="relative">
-              <input
-                type={showPwd ? 'text' : 'password'}
-                autoComplete="current-password"
-                className="input-field pr-10"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+              {/* Contraseña */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Contraseña
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPwd ? 'text' : 'password'}
+                    autoComplete="current-password"
+                    className="input-field pr-10"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    disabled={loading}
+                  />
+                  {/* Botón mostrar/ocultar contraseña */}
+                  <button
+                    type="button"
+                    onClick={() => setShowPwd(!showPwd)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    tabIndex={-1}
+                  >
+                    {showPwd ? '🙈' : '👁️'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Mensaje de error */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
+                  <span>⚠️</span>
+                  {error}
+                </div>
+              )}
+
+              {/* Botón de envío */}
+              <button
+                type="submit"
+                className="btn-primary w-full py-2.5 text-base"
                 disabled={loading}
-              />
-              {/* Botón mostrar/ocultar contraseña */}
+              >
+                {loading ? (
+                  <>
+                    <span className="animate-spin">⏳</span> Entrando…
+                  </>
+                ) : (
+                  'Entrar'
+                )}
+              </button>
+            </form>
+
+            <p className="text-center text-sm text-gray-500 mt-4">
+              ¿No tienes cuenta?{' '}
               <button
                 type="button"
-                onClick={() => setShowPwd(!showPwd)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                tabIndex={-1}
+                onClick={() => setMode('register')}
+                className="text-orange-600 font-medium hover:text-orange-700"
               >
-                {showPwd ? '🙈' : '👁️'}
+                Crear cuenta
               </button>
-            </div>
-          </div>
-
-          {/* Mensaje de error */}
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
-              <span>⚠️</span>
-              {error}
-            </div>
-          )}
-
-          {/* Botón de envío */}
-          <button
-            type="submit"
-            className="btn-primary w-full py-2.5 text-base"
-            disabled={loading}
-          >
-            {loading ? (
-              <>
-                <span className="animate-spin">⏳</span> Entrando…
-              </>
-            ) : (
-              'Entrar'
-            )}
-          </button>
-
-          {/* Credenciales de prueba */}
-          <div className="border-t border-gray-100 pt-4">
-            <p className="text-xs text-gray-400 text-center font-medium mb-2">
-              Cuentas de prueba
             </p>
-            <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="font-semibold text-indigo-600">Admin</p>
-                <p>admin / Admin2024!</p>
-              </div>
-              <div className="bg-gray-50 rounded-lg p-2">
-                <p className="font-semibold text-orange-600">Usuario</p>
-                <p>mgonzalez / Temp1234!</p>
-              </div>
-            </div>
-          </div>
-        </form>
+          </>
+        )}
       </div>
     </div>
   );

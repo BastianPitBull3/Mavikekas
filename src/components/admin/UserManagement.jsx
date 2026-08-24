@@ -5,13 +5,17 @@
  */
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
+import BirthdayPicker, { buildBirthdayDate } from '../shared/BirthdayPicker';
+import InviteCodesManager from './InviteCodesManager';
 
 export default function UserManagement() {
   const { state, createUser, deleteUser, updateUserRole, clearPendingPassword } = useApp();
   const { users, currentUser, pendingNewUserPwd } = state;
 
   // Estado del formulario de creación
-  const [form,    setForm]    = useState({ nombre: '', apellido: '', username: '', role: 'user' });
+  const [form,    setForm]    = useState({
+    nombre: '', apellido: '', username: '', role: 'user', bdayDay: '', bdayMonth: '',
+  });
   const [formErr, setFormErr] = useState('');
   const [showForm, setShowForm] = useState(false);
 
@@ -20,12 +24,13 @@ export default function UserManagement() {
 
   const handleCreate = () => {
     setFormErr('');
-    const result = createUser(form.nombre, form.apellido, form.username, form.role);
+    const cumpleanos = buildBirthdayDate(form.bdayDay, form.bdayMonth);
+    const result = createUser(form.nombre, form.apellido, form.username, form.role, cumpleanos);
     if (!result.success) {
       setFormErr(result.error);
       return;
     }
-    setForm({ nombre: '', apellido: '', username: '', role: 'user' });
+    setForm({ nombre: '', apellido: '', username: '', role: 'user', bdayDay: '', bdayMonth: '' });
     setShowForm(false);
   };
 
@@ -131,6 +136,19 @@ export default function UserManagement() {
                 <option value="admin">Administrador</option>
               </select>
             </div>
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                🎂 Cumpleaños (opcional)
+              </label>
+              <BirthdayPicker
+                day={form.bdayDay}
+                month={form.bdayMonth}
+                onChange={({ day, month }) => setForm({ ...form, bdayDay: day, bdayMonth: month })}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Si lo dejas vacío, se le pedirá al usuario más adelante después de su primer pedido.
+              </p>
+            </div>
           </div>
 
           {formErr && (
@@ -226,6 +244,9 @@ export default function UserManagement() {
           );
         })}
       </div>
+
+      {/* ── Códigos de invitación para auto-registro ── */}
+      <InviteCodesManager />
     </div>
   );
 }
