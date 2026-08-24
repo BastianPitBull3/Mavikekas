@@ -2,6 +2,7 @@
  * CatalogManagement.jsx
  * Gestión de catálogos de tacos y quesadillas.
  * Admin puede agregar, eliminar y activar/desactivar sabores en tiempo real.
+ * Los tacos tienen opción de indicar si admiten queso o no.
  */
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
@@ -12,15 +13,19 @@ import { useApp } from '../../context/AppContext';
 function CatalogEditor({ type, label, emoji, items }) {
   const { addCatalogItem, removeCatalogItem, toggleCatalogItem } = useApp();
 
-  const [newName, setNewName] = useState('');
-  const [error,   setError]   = useState('');
+  const [newName,     setNewName]     = useState('');
+  const [admiteQueso, setAdmiteQueso] = useState(true);
+  const [error,       setError]       = useState('');
 
-  const handleAdd = () => {
+  const isTacos = type === 'tacos';
+
+  const handleAdd = async () => {
     setError('');
     if (!newName.trim()) { setError('Escribe un nombre'); return; }
-    const result = addCatalogItem(type, newName);
+    const result = await addCatalogItem(type, newName, isTacos ? admiteQueso : true);
     if (!result.success) { setError(result.error); return; }
     setNewName('');
+    setAdmiteQueso(true);
   };
 
   const activeCount   = items.filter((it) => it.activo).length;
@@ -56,7 +61,7 @@ function CatalogEditor({ type, label, emoji, items }) {
                   : 'border-gray-100 bg-gray-50 opacity-60'
               }`}
             >
-              {/* Nombre + badge */}
+              {/* Nombre + badges */}
               <div className="flex items-center gap-2 flex-1 min-w-0">
                 <span className="text-sm font-medium text-gray-800 truncate">
                   {emoji} {item.nombre}
@@ -64,6 +69,11 @@ function CatalogEditor({ type, label, emoji, items }) {
                 <span className={item.activo ? 'badge-active' : 'badge-inactive'}>
                   {item.activo ? 'Activo' : 'Inactivo'}
                 </span>
+                {isTacos && item.admiteQueso === false && (
+                  <span className="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded-full whitespace-nowrap">
+                    sin queso
+                  </span>
+                )}
               </div>
 
               {/* Acciones */}
@@ -108,7 +118,7 @@ function CatalogEditor({ type, label, emoji, items }) {
           <input
             type="text"
             className="input-field flex-1 text-sm"
-            placeholder={`Ej. ${type === 'tacos' ? 'Suadero' : 'Elote con crema'}`}
+            placeholder={`Ej. ${isTacos ? 'Suadero' : 'Elote con crema'}`}
             value={newName}
             onChange={(e) => { setNewName(e.target.value); setError(''); }}
             onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
@@ -117,6 +127,22 @@ function CatalogEditor({ type, label, emoji, items }) {
             Agregar
           </button>
         </div>
+
+        {/* Checkbox "Admite queso" (solo tacos) */}
+        {isTacos && (
+          <label className="mt-2.5 flex items-center gap-2 cursor-pointer group w-fit">
+            <input
+              type="checkbox"
+              checked={admiteQueso}
+              onChange={(e) => setAdmiteQueso(e.target.checked)}
+              className="w-3.5 h-3.5 accent-amber-500 rounded"
+            />
+            <span className="text-xs text-gray-600 group-hover:text-gray-800 transition-colors">
+              🧀 Admite queso
+            </span>
+          </label>
+        )}
+
         {error && (
           <p className="text-xs text-red-600 mt-1.5">{error}</p>
         )}

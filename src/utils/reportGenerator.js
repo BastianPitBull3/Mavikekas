@@ -33,17 +33,21 @@ const cleanOrders = (orders) =>
     .filter((o) => o.items.length > 0);
 
 /**
- * Verifica si la globalidad de todos los tacos del día fue pedida con queso.
- * Condición: para cada item, conQueso === cantidad.
+ * Verifica si todos los tacos que ADMITEN queso fueron pedidos con queso.
+ * Items con admiteQueso === false se ignoran en esta verificación.
+ * Retorna false si no hay ningún item que admita queso.
  */
 const checkAllWithCheese = (orders) => {
+  let hasCheeseableItems = false;
   for (const order of orders) {
     for (const item of order.items) {
+      if (item.admiteQueso === false) continue;
+      hasCheeseableItems = true;
       const conQueso = item.conQueso ?? 0;
       if (conQueso < item.cantidad) return false;
     }
   }
-  return true;
+  return hasCheeseableItems;
 };
 
 // ============================================================
@@ -71,14 +75,14 @@ export const generateTacosReport = (orders) => {
   let report = '';
 
   for (const order of clean) {
-    // Nombre completo del usuario como encabezado de sección
-    report += `${order.userNombre} ${order.userApellido}:\n`;
+    // Nombre del usuario como encabezado de sección
+    report += `${order.userNombre}:\n`;
 
     for (const item of order.items) {
       const conQueso = item.conQueso ?? 0;
 
-      if (allWithCheese) {
-        // Cuando todos son con queso: no se menciona "con queso" por línea
+      if (allWithCheese || item.admiteQueso === false) {
+        // Cuando todos son con queso (o el item no admite queso): sin mención de queso por línea
         report += `${item.cantidad} ${item.sabor}\n`;
       } else {
         const sinQueso = item.cantidad - conQueso;
@@ -130,7 +134,7 @@ export const generateQuesadillasReport = (orders) => {
   let report = '';
 
   for (const order of clean) {
-    report += `${order.userNombre} ${order.userApellido}:\n`;
+    report += `${order.userNombre}:\n`;
     for (const item of order.items) {
       report += `${item.cantidad} ${item.sabor}\n`;
     }
@@ -171,6 +175,7 @@ export const getOrderSummaryLines = (order, day) => {
     .filter((it) => it.cantidad > 0)
     .map((item) => {
       if (day === 'viernes') return `${item.cantidad} × ${item.sabor}`;
+      if (item.admiteQueso === false) return `${item.cantidad} × ${item.sabor}`;
       const conQueso = item.conQueso ?? 0;
       const sinQueso = item.cantidad - conQueso;
 

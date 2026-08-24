@@ -37,6 +37,7 @@ export default function Header() {
           >
             <span className="text-xl">🌮</span>
             <span className="hidden sm:inline">Mavikekas</span>
+            <span className="hidden sm:inline text-xs font-normal text-gray-400 tracking-wide">v2.0</span>
           </button>
 
           {/* Navegación central */}
