@@ -1,0 +1,13 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // La app no usa Firebase Auth (login propio contra Firestore), así que
+    // las colecciones quedan abiertas — coherente con cómo ya opera el
+    // proyecto de producción. Solo se usa en el proyecto de desarrollo
+    // (mavikekas-dev-690e0); producción mantiene sus propias reglas,
+    // administradas aparte, para no pisarlas con un deploy accidental.
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

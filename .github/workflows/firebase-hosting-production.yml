@@ -19,6 +19,8 @@ jobs:
 
       - run: npm ci
       - run: npm run build
+        env:
+          VITE_FIREBASE_ENV: production
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:

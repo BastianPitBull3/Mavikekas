@@ -1,6 +1,8 @@
 {
   "projects": {
-    "Mavikekas": "mavikekas-690e0"
+    "default": "mavikekas-690e0",
+    "Mavikekas": "mavikekas-690e0",
+    "dev": "mavikekas-dev-690e0"
   },
   "targets": {},
   "etags": {}

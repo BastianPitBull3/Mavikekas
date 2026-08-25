@@ -15,10 +15,11 @@ Publishes the current build of the Mavikekas app to Firebase Hosting.
    ```
    Skip this only if `dist/` is already confirmed up to date with the latest changes.
 
-2. **Deploy:**
+2. **Deploy — hosting only:**
    ```bash
-   cd "D:\Proyectos\Mavikekas" && npx firebase-tools deploy
+   cd "D:\Proyectos\Mavikekas" && npx firebase-tools deploy --only hosting
    ```
+   Always include `--only hosting` here. `firebase.json` also declares a `firestore.rules` section (used for the separate `mavikekas-dev-690e0` dev project); a bare `firebase deploy` would also push that rules file to **production** and silently overwrite whatever rules are actually configured there. Never deploy Firestore rules to production from this skill.
 
 3. **Confirm before running step 2.** This pushes to the live, production site — a shared resource other people use. If the user's request this turn wasn't an explicit, unambiguous "yes, deploy now," ask for confirmation first rather than deploying automatically.
 

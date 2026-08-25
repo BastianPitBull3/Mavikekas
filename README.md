@@ -41,12 +41,31 @@ src/
 - Node.js 18+
 - Un proyecto de Firebase con **Firestore** habilitado
 
-## Configuración
+## Dos proyectos de Firebase: producción y desarrollo
 
-1. Crea (o usa) un proyecto en [console.firebase.google.com](https://console.firebase.google.com).
-2. En **⚙️ → Configuración del proyecto → Tus apps**, copia el objeto `firebaseConfig`.
-3. Pégalo en `src/firebase.js`.
-4. Habilita **Firestore Database** en el proyecto (modo producción o pruebas, según prefieras) y ajusta las reglas de seguridad.
+La app usa **dos proyectos de Firebase totalmente separados** (cada uno con su propio Firestore, sin compartir datos entre sí):
+
+| | Proyecto | Firestore | Se usa cuando... |
+|---|---|---|---|
+| Producción | `mavikekas-690e0` | datos reales | build con `VITE_FIREBASE_ENV=production` (lo fija el workflow que despliega `main`) |
+| Desarrollo | `mavikekas-dev-690e0` | datos de prueba | cualquier otro caso — default de `npm run dev` local y del canal de vista previa de `develop` |
+
+`src/firebase.js` elige el `firebaseConfig` correcto según esa variable. Así, probar en local o en el sitio de `develop` nunca toca datos ni usuarios reales — ambos escriben en el Firestore de desarrollo, que se siembra solo la primera vez que corre (ver `src/utils/firestoreDB.js`).
+
+Las reglas de Firestore del proyecto de desarrollo viven versionadas en `firestore.rules` y se despliegan aparte con:
+
+```bash
+npx firebase-tools deploy --only firestore:rules --project dev
+```
+
+**Las reglas de producción NO se tocan desde aquí** — se administran directamente en la consola de Firebase, a propósito, para que un deploy nunca las sobreescriba sin querer.
+
+## Configuración (si conectas tu propio Firebase)
+
+1. Crea uno o dos proyectos en [console.firebase.google.com](https://console.firebase.google.com) (uno solo si no necesitas separar dev/prod).
+2. En **⚙️ → Configuración del proyecto → Tus apps**, copia el objeto `firebaseConfig` de cada uno.
+3. Actualiza `FIREBASE_CONFIGS` en `src/firebase.js`.
+4. Habilita **Firestore Database** en cada proyecto y ajusta sus reglas de seguridad.
 
 La primera vez que la app corre contra un Firestore vacío, siembra automáticamente catálogos y un usuario administrador de prueba (ver `src/utils/firestoreDB.js`) — cambia esas credenciales antes de usar la app con datos reales.
 
