@@ -215,8 +215,10 @@ export const AppProvider = ({ children }) => {
   // ============================================================
 
   const login = (username, password) => {
+    // Se recorta espacios accidentales (típico de autocorrección en celulares)
+    // para no fallar por un espacio invisible al inicio/final.
     const user = state.users.find(
-      (u) => u.username === username && u.password === password
+      (u) => u.username === username && u.password === password.trim()
     );
     if (!user) return { success: false, error: 'Usuario o contraseña incorrectos' };
 
@@ -302,7 +304,7 @@ export const AppProvider = ({ children }) => {
     const updated = {
       ...user,
       ...(username && { username: username.trim() }),
-      ...(password && { password }),
+      ...(password && { password: password.trim() }),
       passwordChanged: true,
     };
     try {
@@ -458,7 +460,11 @@ export const AppProvider = ({ children }) => {
 
   /** Cambia la contraseña si el código coincide con el generado; lo invalida al usarlo */
   const resetPasswordWithCode = async (username, code, newPassword) => {
-    if (newPassword.length < 6)
+    // Se recorta espacios accidentales antes de validar y guardar (típico de
+    // autocorrección en celulares) para que coincida luego con lo que se
+    // escriba al iniciar sesión.
+    const trimmedPassword = newPassword.trim();
+    if (trimmedPassword.length < 6)
       return { success: false, error: 'La contraseña debe tener al menos 6 caracteres' };
 
     const user = state.users.find((u) => u.username === username.trim());
@@ -468,7 +474,7 @@ export const AppProvider = ({ children }) => {
 
     try {
       await saveUser({
-        ...user, password: newPassword, passwordResetCode: null, passwordChanged: true,
+        ...user, password: trimmedPassword, passwordResetCode: null, passwordChanged: true,
       });
       return { success: true };
     } catch {
