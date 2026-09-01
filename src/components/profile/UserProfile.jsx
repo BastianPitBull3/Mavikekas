@@ -162,7 +162,7 @@ function DefaultOrderEditor({ catalog, day, initialItems, onSave }) {
 // COMPONENTE PRINCIPAL
 // ============================================================
 export default function UserProfile() {
-  const { state, updateProfile, updateFavoriteCake, saveDefaultOrder } = useApp();
+  const { state, updateProfile, updateFavoriteCake, updateAdminWhatsApp, saveDefaultOrder } = useApp();
   const { currentUser, catalogs } = state;
 
   const [defaultTab,      setDefaultTab]      = useState('martes');
@@ -173,6 +173,9 @@ export default function UserProfile() {
   const [profileMsg,      setProfileMsg]      = useState(null);
   const [pastelFavorito,  setPastelFavorito]  = useState(currentUser?.pastelFavorito ?? '');
   const [cakeMsg,         setCakeMsg]         = useState(null);
+  const [whatsappPhone,   setWhatsappPhone]   = useState(currentUser?.whatsappPhone ?? '');
+  const [whatsappApiKey,  setWhatsappApiKey]  = useState(currentUser?.whatsappApiKey ?? '');
+  const [whatsappMsg,     setWhatsappMsg]     = useState(null);
 
   // Sincronizar username si currentUser cambia (p.ej. tras actualizar perfil)
   useEffect(() => {
@@ -182,6 +185,13 @@ export default function UserProfile() {
   useEffect(() => {
     if (currentUser) setPastelFavorito(currentUser.pastelFavorito ?? '');
   }, [currentUser?.pastelFavorito]);
+
+  useEffect(() => {
+    if (currentUser) {
+      setWhatsappPhone(currentUser.whatsappPhone ?? '');
+      setWhatsappApiKey(currentUser.whatsappApiKey ?? '');
+    }
+  }, [currentUser?.whatsappPhone, currentUser?.whatsappApiKey]);
 
   if (!currentUser) return null;
 
@@ -226,6 +236,18 @@ export default function UserProfile() {
     setCakeMsg(
       result.success
         ? { type: 'success', text: trimmed ? 'Pastel favorito guardado correctamente' : 'Pastel favorito eliminado' }
+        : { type: 'error', text: result.error }
+    );
+  };
+
+  const handleSaveWhatsApp = async () => {
+    setWhatsappMsg(null);
+    const result = await updateAdminWhatsApp(
+      currentUser.id, whatsappPhone.trim(), whatsappApiKey.trim()
+    );
+    setWhatsappMsg(
+      result.success
+        ? { type: 'success', text: 'Datos de WhatsApp guardados correctamente' }
         : { type: 'error', text: result.error }
     );
   };
@@ -358,6 +380,50 @@ export default function UserProfile() {
               </p>
             )}
           </div>
+
+          {/* WhatsApp para notificaciones de recuperación de contraseña (solo admin) */}
+          {currentUser.role === 'admin' && (
+            <div className="pt-3 border-t border-gray-100">
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                📱 WhatsApp para recuperación de contraseñas
+              </label>
+              <p className="text-xs text-gray-400 mb-2">
+                Cuando un usuario pida recuperar su contraseña, te llega el código por
+                WhatsApp (vía <a href="https://www.callmebot.com/blog/free-api-whatsapp-messages/"
+                target="_blank" rel="noreferrer" className="underline">CallMeBot</a>, un
+                servicio gratuito de terceros):
+                {' '}1. Agrega <strong>+34 644 51 95 23</strong> a tus contactos de WhatsApp.
+                {' '}2. Envíale el mensaje <em>"I allow callmebot to send me messages"</em>.
+                {' '}3. Pega aquí el número que respondió y la clave que te dio.
+              </p>
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  className="input-field text-sm"
+                  placeholder="Tu número con código de país, ej. 521234567890"
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                />
+                <input
+                  type="text"
+                  className="input-field text-sm font-mono"
+                  placeholder="Clave que te dio CallMeBot"
+                  value={whatsappApiKey}
+                  onChange={(e) => setWhatsappApiKey(e.target.value)}
+                />
+                <button onClick={handleSaveWhatsApp} className="btn-secondary text-sm w-full">
+                  Guardar
+                </button>
+              </div>
+              {whatsappMsg && (
+                <p className={`text-xs mt-2 ${
+                  whatsappMsg.type === 'success' ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {whatsappMsg.type === 'success' ? '✅ ' : '⚠️ '}{whatsappMsg.text}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── COLUMNA DERECHA: Órdenes por defecto con pestañas ── */}

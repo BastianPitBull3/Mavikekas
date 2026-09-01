@@ -2,7 +2,8 @@
  * LoginForm.jsx
  * Pantalla de inicio de sesión. Valida credenciales contra Firestore.
  * También permite auto-registro con un código de invitación generado
- * por un admin (ver RegisterForm más abajo).
+ * por un admin (ver RegisterForm), y recuperación de contraseña vía
+ * notificación de WhatsApp a los admins (ver ForgotPasswordForm).
  */
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
@@ -167,12 +168,190 @@ function RegisterForm({ onBack }) {
 }
 
 // ============================================================
+// SUB-COMPONENTE: Recuperación de contraseña (código vía WhatsApp)
+// ============================================================
+function ForgotPasswordForm({ onBack }) {
+  const { requestPasswordReset, resetPasswordWithCode } = useApp();
+
+  // 'request' → pide el código; 'reset' → ya tiene el código, cambia la contraseña
+  const [step, setStep] = useState('request');
+
+  const [username,        setUsername]        = useState('');
+  const [code,             setCode]            = useState('');
+  const [newPassword,      setNewPassword]     = useState('');
+  const [confirmPassword,  setConfirmPassword] = useState('');
+  const [showPwd,          setShowPwd]         = useState(false);
+
+  const [error,   setError]   = useState('');
+  const [success, setSuccess] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleRequest = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    if (!username.trim()) {
+      setError('Escribe tu nombre de usuario');
+      return;
+    }
+
+    setLoading(true);
+    const result = await requestPasswordReset(username);
+    setLoading(false);
+
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    setSuccess(
+      'Se generó un código de recuperación. Pídeselo a un administrador ' +
+      '(le llegó por WhatsApp) y captúralo abajo.'
+    );
+    setStep('reset');
+  };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+
+    if (!username.trim() || !code.trim() || !newPassword) {
+      setError('Completa todos los campos');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Las contraseñas no coinciden');
+      return;
+    }
+
+    setLoading(true);
+    const result = await resetPasswordWithCode(username, code, newPassword);
+    setLoading(false);
+
+    if (!result.success) {
+      setError(result.error);
+      return;
+    }
+    setSuccess('¡Contraseña actualizada! Ya puedes iniciar sesión con la nueva.');
+    setCode('');
+    setNewPassword('');
+    setConfirmPassword('');
+  };
+
+  return (
+    <form
+      onSubmit={step === 'request' ? handleRequest : handleReset}
+      className="bg-white rounded-2xl shadow-xl border border-gray-100 p-8 space-y-4"
+    >
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onBack}
+          className="text-gray-400 hover:text-gray-600 text-sm"
+        >
+          ← Volver
+        </button>
+        <h2 className="text-lg font-semibold text-gray-800">Recuperar contraseña</h2>
+      </div>
+
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1">
+          Nombre de usuario
+        </label>
+        <input
+          type="text" autoComplete="username" className="input-field text-sm"
+          placeholder="Tu usuario" value={username}
+          onChange={(e) => setUsername(e.target.value)} disabled={loading}
+        />
+      </div>
+
+      {step === 'reset' && (
+        <>
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Código de recuperación
+            </label>
+            <input
+              type="text" inputMode="numeric" className="input-field text-sm font-mono tracking-wider"
+              placeholder="6 dígitos, te lo da un admin" value={code}
+              onChange={(e) => setCode(e.target.value)} disabled={loading}
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Nueva contraseña</label>
+            <div className="relative">
+              <input
+                type={showPwd ? 'text' : 'password'} autoComplete="new-password"
+                className="input-field text-sm pr-10" placeholder="Mínimo 6 caracteres"
+                value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={loading}
+              />
+              <button
+                type="button" onClick={() => setShowPwd(!showPwd)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                tabIndex={-1}
+              >
+                {showPwd ? '🙈' : '👁️'}
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Confirmar contraseña</label>
+            <input
+              type={showPwd ? 'text' : 'password'} className="input-field text-sm"
+              placeholder="••••••••" value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)} disabled={loading}
+            />
+          </div>
+        </>
+      )}
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
+          <span>⚠️</span>
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-lg flex items-center gap-2">
+          <span>✅</span>
+          {success}
+        </div>
+      )}
+
+      <button type="submit" className="btn-primary w-full py-2.5 text-base" disabled={loading}>
+        {loading ? (
+          <>
+            <span className="animate-spin">⏳</span> {step === 'request' ? 'Enviando…' : 'Guardando…'}
+          </>
+        ) : step === 'request' ? (
+          'Solicitar código'
+        ) : (
+          'Restablecer contraseña'
+        )}
+      </button>
+
+      {step === 'reset' && (
+        <button
+          type="button"
+          onClick={() => { setStep('request'); setError(''); setSuccess(''); }}
+          className="w-full text-center text-xs text-gray-400 hover:text-gray-600"
+        >
+          ¿Necesitas pedir el código de nuevo?
+        </button>
+      )}
+    </form>
+  );
+}
+
+// ============================================================
 // COMPONENTE PRINCIPAL
 // ============================================================
 export default function LoginForm() {
   const { login } = useApp();
 
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
+  const [mode, setMode] = useState('login'); // 'login' | 'register' | 'forgot'
 
   // Estado del formulario de login
   const [username, setUsername] = useState('');
@@ -215,6 +394,8 @@ export default function LoginForm() {
 
         {mode === 'register' ? (
           <RegisterForm onBack={() => setMode('login')} />
+        ) : mode === 'forgot' ? (
+          <ForgotPasswordForm onBack={() => setMode('login')} />
         ) : (
           <>
             <form
@@ -243,9 +424,18 @@ export default function LoginForm() {
 
               {/* Contraseña */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Contraseña
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Contraseña
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setMode('forgot')}
+                    className="text-xs text-orange-600 hover:text-orange-700 font-medium"
+                  >
+                    ¿Olvidaste tu contraseña?
+                  </button>
+                </div>
                 <div className="relative">
                   <input
                     type={showPwd ? 'text' : 'password'}

@@ -20,6 +20,7 @@ import {
 } from '../utils/firestoreDB';
 import { saveSessionUserId, getSessionUserId, clearSession } from '../utils/storage';
 import { getTodayString } from '../utils/dateUtils';
+import { sendWhatsAppNotification } from '../utils/whatsapp';
 
 // ============================================================
 // TIPOS DE ACCIONES
@@ -52,6 +53,8 @@ const genInviteCode = () => {
   for (let i = 0; i < 8; i++) code += pool[Math.floor(Math.random() * pool.length)];
   return code;
 };
+/** Código numérico de 6 dígitos — fácil de leer/escribir desde un WhatsApp */
+const genRecoveryCode = () => String(Math.floor(100000 + Math.random() * 900000));
 
 // ============================================================
 // ESTADO INICIAL (vacío — Firestore lo llenará vía listeners)
@@ -337,6 +340,18 @@ export const AppProvider = ({ children }) => {
     }
   };
 
+  /** Guarda el número y la clave de CallMeBot de un admin para recibir notificaciones */
+  const updateAdminWhatsApp = async (userId, whatsappPhone, whatsappApiKey) => {
+    const user = state.users.find((u) => u.id === userId);
+    if (!user) return { success: false, error: 'Usuario no encontrado' };
+    try {
+      await saveUser({ ...user, whatsappPhone, whatsappApiKey });
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Error al guardar los datos de WhatsApp' };
+    }
+  };
+
   // ============================================================
   // CÓDIGO DE INVITACIÓN (Solo Admin genera/revoca; cualquiera lo consume)
   // ============================================================
@@ -402,6 +417,62 @@ export const AppProvider = ({ children }) => {
       return { success: true };
     } catch {
       return { success: false, error: 'Error al crear la cuenta' };
+    }
+  };
+
+  // ============================================================
+  // RECUPERACIÓN DE CONTRASEÑA (desde la pantalla de login)
+  // ============================================================
+  // El código vive en el propio documento del usuario (mismo patrón que el
+  // código de invitación): generarlo lo deja disponible, y usarlo lo limpia
+  // a null — así queda inservible después de un solo uso.
+
+  /**
+   * Genera un código de recuperación para el usuario indicado y notifica
+   * por WhatsApp (CallMeBot) a todos los admins que tengan su número
+   * configurado. No requiere sesión activa — se usa desde el login.
+   */
+  const requestPasswordReset = async (username) => {
+    const user = state.users.find((u) => u.username === username.trim());
+    if (!user) return { success: false, error: 'No existe ese usuario' };
+
+    const code = genRecoveryCode();
+    try {
+      await saveUser({ ...user, passwordResetCode: code });
+    } catch {
+      return { success: false, error: 'Error al generar el código' };
+    }
+
+    const admins = state.users.filter(
+      (u) => u.role === 'admin' && u.whatsappPhone && u.whatsappApiKey
+    );
+    const message =
+      `🌮 Mavikekas: ${user.nombre} ${user.apellido} (@${user.username}) ` +
+      `solicitó recuperar su contraseña. Código: ${code}`;
+    admins.forEach((admin) =>
+      sendWhatsAppNotification(admin.whatsappPhone, admin.whatsappApiKey, message)
+    );
+
+    return { success: true, notifiedCount: admins.length };
+  };
+
+  /** Cambia la contraseña si el código coincide con el generado; lo invalida al usarlo */
+  const resetPasswordWithCode = async (username, code, newPassword) => {
+    if (newPassword.length < 6)
+      return { success: false, error: 'La contraseña debe tener al menos 6 caracteres' };
+
+    const user = state.users.find((u) => u.username === username.trim());
+    if (!user) return { success: false, error: 'No existe ese usuario' };
+    if (!user.passwordResetCode || user.passwordResetCode !== code.trim())
+      return { success: false, error: 'Código inválido' };
+
+    try {
+      await saveUser({
+        ...user, password: newPassword, passwordResetCode: null, passwordChanged: true,
+      });
+      return { success: true };
+    } catch {
+      return { success: false, error: 'Error al restablecer la contraseña' };
     }
   };
 
@@ -578,8 +649,9 @@ export const AppProvider = ({ children }) => {
       state, loading, dbError, configFilled: CONFIG_FILLED,
       login, logout, setView,
       createUser, deleteUser, updateUserRole, updateProfile, clearPendingPassword,
-      updateBirthday, updateFavoriteCake,
+      updateBirthday, updateFavoriteCake, updateAdminWhatsApp,
       generateInviteCode, revokeInviteCode, registerUser,
+      requestPasswordReset, resetPasswordWithCode,
       addCatalogItem, removeCatalogItem, toggleCatalogItem,
       setServiceEnabled, setSimulatedDay, setSimulatedTime, setSimulatedDate, resetSimulation,
       getTodayOrder, getTodayOrders, submitOrder, deleteOrder, saveDefaultOrder, clearOrderSummary,

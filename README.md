@@ -17,6 +17,7 @@ No hay backend propio: toda la lógica corre en el navegador y la única pieza c
 - **Panel de administración**: control manual del servicio (encendido/apagado), gestión de usuarios y roles, catálogo de sabores (con flag de "admite queso"), consolidado del día con reporte listo para copiar a WhatsApp y eliminación de pedidos individuales.
 - **Cumpleaños**: cada usuario puede tener día/mes de cumpleaños y pastel favorito; se muestran en un widget en el inicio, con una card destacada y un modal de felicitación el día que corresponde, más un recordatorio después de hacer un pedido si falta algún dato.
 - **Auto-registro**: un admin genera un código de invitación de un solo uso desde el panel; con ese código, cualquiera puede crear su propia cuenta desde la pantalla de login.
+- **Recuperación de contraseña**: el usuario pide un código desde el login con su nombre de usuario; los admins que tengan su WhatsApp configurado (Mi Perfil) reciben una notificación con el código vía [CallMeBot](https://www.callmebot.com/blog/free-api-whatsapp-messages/) (servicio gratuito de terceros, sin backend propio); se lo pasan al usuario, que lo captura junto con su nueva contraseña — el código queda inservible en cuanto se usa una vez.
 - **Simulador de tiempo** (solo admin): permite simular día, hora y fecha para probar la lógica de horario de servicio y cumpleaños sin esperar a que ocurran de verdad.
 
 ## Estructura del proyecto
