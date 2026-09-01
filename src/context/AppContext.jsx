@@ -472,14 +472,21 @@ export const AppProvider = ({ children }) => {
     if (!user.passwordResetCode || user.passwordResetCode !== code.trim())
       return { success: false, error: 'Código inválido' };
 
+    const updatedUser = {
+      ...user, password: trimmedPassword, passwordResetCode: null, passwordChanged: true,
+    };
     try {
-      await saveUser({
-        ...user, password: trimmedPassword, passwordResetCode: null, passwordChanged: true,
-      });
-      return { success: true };
+      await saveUser(updatedUser);
     } catch {
       return { success: false, error: 'Error al restablecer la contraseña' };
     }
+
+    // Contraseña restablecida: iniciar sesión automáticamente (mismo patrón
+    // que login/registerUser) y mandar directo al dashboard correspondiente.
+    saveSessionUserId(updatedUser.id);
+    dispatch({ type: A.SET_CURRENT_USER, payload: updatedUser });
+    dispatch({ type: A.SET_VIEW, payload: updatedUser.role === 'admin' ? 'admin' : 'orders' });
+    return { success: true };
   };
 
   // ============================================================

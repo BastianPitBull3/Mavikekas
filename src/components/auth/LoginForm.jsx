@@ -226,16 +226,14 @@ function ForgotPasswordForm({ onBack }) {
 
     setLoading(true);
     const result = await resetPasswordWithCode(username, code, newPassword);
-    setLoading(false);
 
     if (!result.success) {
+      setLoading(false);
       setError(result.error);
       return;
     }
-    setSuccess('¡Contraseña actualizada! Ya puedes iniciar sesión con la nueva.');
-    setCode('');
-    setNewPassword('');
-    setConfirmPassword('');
+    // Éxito: resetPasswordWithCode ya inició sesión — App.jsx redirige solo
+    // al dashboard, no hace falta tocar más estado local aquí.
   };
 
   return (
