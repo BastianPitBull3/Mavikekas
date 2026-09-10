@@ -17,7 +17,7 @@
  */
 import React, { useEffect, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { isBirthdayToday, getTodayString } from '../../utils/dateUtils';
+import { isBirthdayVisibleToday, getTodayString } from '../../utils/dateUtils';
 import { wasBirthdayModalShownToday, markBirthdayModalShown } from '../../utils/storage';
 import { BIRTHDAY_ART_SRC } from '../../utils/birthdayArt';
 
@@ -32,7 +32,7 @@ export default function BirthdayModal() {
     if (!currentUser) return;
 
     const today = appState.simulatedDate || getTodayString();
-    if (!isBirthdayToday(currentUser.cumpleanos, appState.simulatedDate)) return;
+    if (!isBirthdayVisibleToday(currentUser.cumpleanos, appState.simulatedDate)) return;
     if (wasBirthdayModalShownToday(currentUser.id, today)) return;
 
     markBirthdayModalShown(currentUser.id, today);

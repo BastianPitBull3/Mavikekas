@@ -14,7 +14,7 @@
  */
 import React, { useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { formatBirthday, sortByUpcomingBirthday, isBirthdayToday } from '../../utils/dateUtils';
+import { formatBirthday, sortByUpcomingBirthday, isBirthdayVisibleToday } from '../../utils/dateUtils';
 import BirthdayPicker, { buildBirthdayDate, parseBirthdayDate } from '../shared/BirthdayPicker';
 
 export default function BirthdaysWidget() {
@@ -72,7 +72,7 @@ export default function BirthdaysWidget() {
       <div className="divide-y divide-gray-100">
         {sorted.map((user) => {
           const isSelf     = user.id === currentUser.id;
-          const wearsCrown = isBirthdayToday(user.cumpleanos, simulatedDate);
+          const wearsCrown = isBirthdayVisibleToday(user.cumpleanos, simulatedDate);
 
           return (
             <div key={user.id} className="py-2.5 first:pt-0 last:pb-0">

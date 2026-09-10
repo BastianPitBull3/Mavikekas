@@ -206,3 +206,62 @@ export const isBirthdayToday = (dateStr, simulatedDate = null) => {
   const now = getCurrentDate(simulatedDate);
   return now.getMonth() + 1 === month && now.getDate() === day;
 };
+
+/**
+ * Ventana de visibilidad de la felicitación según el día de la semana en que
+ * cae el cumpleaños. Como el equipo solo entra a la app los días de servicio
+ * (martes y viernes), la felicitación no se muestra un único día: se abre
+ * alrededor de la fecha real para que caiga en un día en que la persona pueda
+ * verla.
+ *
+ *   Cae lunes     → viernes previo  +  lunes
+ *   Cae martes    → martes            (día de servicio)
+ *   Cae miércoles → martes previo   +  miércoles
+ *   Cae jueves    → jueves          +  viernes siguiente
+ *   Cae viernes   → viernes           (día de servicio)
+ *   Cae sábado    → viernes previo
+ *   Cae domingo   → viernes previo
+ *
+ * Día de semana JS: 0=domingo, 1=lunes, … 6=sábado. Cada valor es la lista de
+ * desfases en días (negativo = antes, 0 = ese mismo día) válidos para mostrarla.
+ */
+const BIRTHDAY_VISIBLE_OFFSETS = {
+  0: [-2],     // domingo   → viernes previo
+  1: [-3, 0],  // lunes     → viernes previo + ese día
+  2: [0],      // martes    → ese día
+  3: [-1, 0],  // miércoles → martes previo + ese día
+  4: [0, 1],   // jueves    → ese día + viernes siguiente
+  5: [0],      // viernes   → ese día
+  6: [-1],     // sábado    → viernes previo
+};
+
+/**
+ * ¿Debe mostrarse hoy (fecha real o simulada) la felicitación del cumpleaños
+ * indicado? Aplica la ventana de BIRTHDAY_VISIBLE_OFFSETS: reemplaza a
+ * isBirthdayToday para decidir cuándo se ve el mensaje/arte de cumpleaños.
+ *
+ * @param {string|null} dateStr - 'YYYY-MM-DD'
+ * @param {string|null} simulatedDate - 'YYYY-MM-DD' | null, para pruebas
+ * @returns {boolean}
+ */
+export const isBirthdayVisibleToday = (dateStr, simulatedDate = null) => {
+  if (!dateStr) return false;
+  const [, month, day] = dateStr.split('-').map(Number);
+  const now   = getCurrentDate(simulatedDate);
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+
+  // Se revisan las ocurrencias del cumpleaños en el año anterior, el actual y
+  // el siguiente, para cubrir ventanas que cruzan el cambio de año.
+  for (let y = now.getFullYear() - 1; y <= now.getFullYear() + 1; y++) {
+    const bday = new Date(y, month - 1, day);
+    // Descartar desbordes de fecha inválida (ej. 29-feb en año no bisiesto),
+    // manteniendo la misma paridad que isBirthdayToday.
+    if (bday.getMonth() !== month - 1) continue;
+
+    const offsets = BIRTHDAY_VISIBLE_OFFSETS[bday.getDay()] || [0];
+    for (const off of offsets) {
+      if (new Date(y, month - 1, day + off).getTime() === today) return true;
+    }
+  }
+  return false;
+};

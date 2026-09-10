@@ -8,7 +8,7 @@
  */
 import React, { useMemo, useState } from 'react';
 import { useApp } from '../../context/AppContext';
-import { isBirthdayToday } from '../../utils/dateUtils';
+import { isBirthdayVisibleToday } from '../../utils/dateUtils';
 import { BIRTHDAY_ART_SRC } from '../../utils/birthdayArt';
 
 export default function TodayBirthdayCard() {
@@ -18,7 +18,7 @@ export default function TodayBirthdayCard() {
   const [artFailed, setArtFailed] = useState(!BIRTHDAY_ART_SRC);
 
   const todaysBirthdays = useMemo(
-    () => users.filter((u) => isBirthdayToday(u.cumpleanos, simulatedDate)),
+    () => users.filter((u) => isBirthdayVisibleToday(u.cumpleanos, simulatedDate)),
     [users, simulatedDate]
   );
 
