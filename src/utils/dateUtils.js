@@ -219,20 +219,20 @@ export const isBirthdayToday = (dateStr, simulatedDate = null) => {
  *   Cae miércoles → martes previo   +  miércoles
  *   Cae jueves    → jueves          +  viernes siguiente
  *   Cae viernes   → viernes           (día de servicio)
- *   Cae sábado    → viernes previo
- *   Cae domingo   → viernes previo
+ *   Cae sábado    → viernes previo  +  sábado
+ *   Cae domingo   → viernes previo  +  domingo
  *
  * Día de semana JS: 0=domingo, 1=lunes, … 6=sábado. Cada valor es la lista de
  * desfases en días (negativo = antes, 0 = ese mismo día) válidos para mostrarla.
  */
 const BIRTHDAY_VISIBLE_OFFSETS = {
-  0: [-2],     // domingo   → viernes previo
+  0: [-2, 0],  // domingo   → viernes previo + ese día
   1: [-3, 0],  // lunes     → viernes previo + ese día
   2: [0],      // martes    → ese día
   3: [-1, 0],  // miércoles → martes previo + ese día
   4: [0, 1],   // jueves    → ese día + viernes siguiente
   5: [0],      // viernes   → ese día
-  6: [-1],     // sábado    → viernes previo
+  6: [-1, 0],  // sábado    → viernes previo + ese día
 };
 
 /**
